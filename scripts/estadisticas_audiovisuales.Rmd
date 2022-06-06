@@ -1,0 +1,268 @@
+---
+title: "Estadísticas de monitoreo de medios audiovisuales"
+author: "Gerardo Diosdado"
+date: "Domingo, 01 de agosto de 2021"
+output:
+  html_document: 
+    theme: journal
+    toc: yes
+  pdf_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,
+                      message = FALSE,
+                      warning = FALSE)
+```
+
+```{r Objetivos, eval=FALSE, include=FALSE}
+
+# Intento de análisis de notas audiovisuales ------------------------------
+
+
+# # Objetivos -------------------------------------------------------------
+
+# Conocer la cantidad de noticieros que se monitorean
+# Conocer la cantidad total de notas
+# COnocer la cantidad de notas por horario
+# Conocer la cantidad de notas por medio de comunicación
+# Conocer la cantidad de notas por temática
+# Conocer el tiempo que se dedica a cada temática
+# Conocer la cantidad de notas por tendencia
+# Conocer el tiempo que se dedica a cada tendencia
+# Conocer la cantidad de notas electorales
+# Conocer el tiempo que se dedica a las notas electorales
+
+```
+
+```{r Librerías, include=FALSE}
+
+library(flexdashboard) # para hacer un tablero bien bonito
+library(tidyverse) # Para todo!
+library(tidytext) # Para el análisis del texto
+library(kableExtra) # Para tablas bonitas
+library(ggthemes) # Para gráficas bonitas
+library(gganimate) # Para gráficos animados
+library(treemap) # Para gráficas de árbol
+library(ggalluvial) # Para gráficas alluvial
+library(circlize) # Para gráficas de cuerda
+
+```
+
+```{r Carga de los datos, include=FALSE}
+
+library(readr)
+audiovisuales <- 
+  read_csv("https://docs.google.com/spreadsheets/d/e/2PACX-1vTjyGBaMjcbumwObs8PqncIQdHYIQ4EBuBcxqo1MtNDv9Yz62j-nt1Mwz14WAxwrezfiK1IxbVLkVXy/pub?output=csv", 
+           col_types = cols(
+             `Marca temporal` = col_datetime(format = "%d/%m/%Y %H:%M:%S"), 
+             Fecha = col_date(format = "%d/%m/%Y"), 
+             Horario = col_factor(levels = c("Matutino", "Vespertino", "Nocturno")), 
+             Duración = col_time(format = "%H:%M:%S"),  
+             Analista = col_factor(levels = c("Alejandro", "Elisa", "Gael",
+                                              "Luisa", "Monserrat")), 
+             Tipo_noticiero = col_factor(levels = c("Internet", "Radio", 
+                                                    "Televisión")), 
+             Nivel_gobierno = col_character()))
+View(audiovisuales)
+
+```
+
+```{r Procesamiento de la data, include=FALSE}
+
+#separo la info que se captura en una sola columna
+audiovisuales <- audiovisuales %>% 
+  unnest_tokens(Nivel_gobierno, Nivel_gobierno, token = "regex", pattern = ",") %>% 
+  unnest_tokens(Organización, Organización, token = "regex", pattern = ",") %>% 
+  unnest_tokens(Tendencia, Tendencia, token = "regex", pattern = ",")
+
+# La limpieza en esta caso la voy a limitar a remover acentos y pasar a
+# minúsculas todas las letras 
+
+limpiar_texto <- function(texto){
+  # El orden de la limpieza no es arbitrario
+  # Se convierte todo el texto a minúsculas
+  nuevo_texto <- str_to_lower(texto)
+  # Eliminación de signos de puntuación
+  #nuevo_texto <- str_replace_all(nuevo_texto,"[[:punct:]]", " ")
+  # Eliminación de acentos
+  nuevo_texto <- chartr("áéíóú", "aeiou", nuevo_texto)
+  #nuevo_texto <- str_replace_all(nuevo_texto,"[áéíóú]", "[aeiou]")
+  # Eliminación de espacios en blanco múltiples
+  nuevo_texto <- str_replace_all(nuevo_texto,"[\\s]+", " ")
+  return(nuevo_texto)
+}
+audiovisuales<- audiovisuales %>% 
+  mutate(Nivel_gobierno, Nivel_gobierno = limpiar_texto(texto = Nivel_gobierno),
+         Organización, Organización = limpiar_texto(texto = Organización),
+         Tendencia, Tendencia = limpiar_texto(texto = Tendencia))
+
+# Eliminación de espacios en blanco al inicio y al final
+audiovisuales$Nivel_gobierno <- str_trim(audiovisuales$Nivel_gobierno, 
+                                         side = "both")
+audiovisuales$Organización <- str_trim(audiovisuales$Organización, 
+                                         side = "both")
+audiovisuales$Tendencia <- str_trim(audiovisuales$Tendencia, 
+                                         side = "both")
+
+#Filtramos la fecha de las notas que quiero mostrar
+audio_semanal <- audiovisuales %>% 
+  filter(Fecha >= "2021-07-26" & Fecha <= "2021-07-31")
+
+```
+- Objetivos 
+
+- 1 Conocer la cantidad total de noticias que se monitorean durante la semana.
+- 2 ¿Cómo se distribuye la información por día?, ¿Cómo por horario?.
+- 3 Que medio de comunicación publica más información.
+- 4 ¿Cuánto tiempo le dedican los noticieros cada nivel de gobierno?
+- 5 ¿Cuáles son los temas de los que más se habla durante la semana?
+
+
+
+### 1. Noticias totales durante la semana
+```{r Notas totales, echo=FALSE}
+
+audio_semanal %>% 
+  select(c(Fecha, Titular, Enlace, Horario, Duración, Tipo_noticiero,
+           Noticiero)) %>%
+  group_by(Tipo_noticiero) %>% 
+  count(sort = TRUE) %>% 
+  ungroup() %>% 
+  kable() %>% 
+  kable_styling(bootstrap_options = "responsive", font_size = 12)
+
+total_notas_tipo_noticiero <- audio_semanal %>%
+  group_by(Tipo_noticiero) %>%
+  summarise(n = n())
+
+treemap(total_notas_tipo_noticiero,
+        index = c("Tipo_noticiero", "n"),
+        vSize = "n",
+        type = "index",
+        title = "Total de noticias revisadas durante la semana",
+        palette = "Dark2",
+        border.col = "white",
+        border.lwds = 2,
+        fontsize.labels = c(15, 15),
+        fontcolor.labels = "white",
+        fontface.labels = c("bold", "italic"),
+        bg.labels = 0,
+        lowerbound.cex.labels = 0,
+        inflate.labels = F,
+        force.print.labels = T,
+        overlap.labels = 1,
+        align.labels = list(c("center", "center"),
+                            c("right", "top"))
+        )
+
+
+```
+
+
+
+### 2. Distribución de las noticias por día
+```{r Notas por fecha}
+
+total_fecha <-
+  kable(table(audio_semanal$Tipo_noticiero, audio_semanal$Fecha), 
+              caption = "Total de notas durante la semana divididas por fecha")
+kable_styling(total_fecha, font_size = 10)
+
+total_notas_fecha <- audio_semanal %>%
+  group_by(Fecha, Horario) %>%
+  summarise(n = n()) %>% 
+ggplot(aes(axis1 = Fecha, axis2 = Horario, y = n)) +
+  geom_alluvium(aes(fill = Horario)) +
+  geom_stratum(aes(fill = Horario, color = "white")) +
+  geom_text(stat = "stratum",
+            aes(label = after_stat(stratum))) +
+  scale_x_discrete(limits = c("Fecha", "Horario"),
+                   expand = c(0.15, 0.05)) +
+  theme_void()+
+  theme(legend.position = "none")
+total_notas_fecha
+
+```
+
+### 4. Cantidad de información que se revisa por horario durante el día
+```{r Notas por horario, echo=FALSE}
+
+total_horario <-
+  kable(table(audio_semanal$Fecha, audio_semanal$Horario), 
+              caption = "Total de notas durante la semana divididas por horario")
+kable_styling(total_horario, font_size = 10)
+
+total_notas_horario <- audio_semanal %>%
+  group_by(Fecha, Horario) %>%
+  summarise(n = n()) %>%
+  ggplot(aes(Fecha, n, color = Horario))+
+  geom_line(aes(group = Horario))+
+  geom_point()+
+  ggrepel::geom_label_repel(aes(label = n))+
+  labs(title = "Total de notas diarias por horario",
+       subtitle = paste0(nrow(audio_semanal)," notas totales"),
+       x = "Horario",
+       y = "Total de notas",
+       caption = "\n@Data recolectada a través del formulario de captura de Punto Preciso")+
+  theme_hc()+
+  transition_manual(Fecha, cumulative = TRUE) +
+  shadow_mark(past = TRUE)
+animate(total_notas_horario)
+
+```
+
+### 5. medio de comunicación que publica más información
+```{r Notas por noticiero}
+
+total_noticiero <-
+  kable(table(audio_semanal$Noticiero, audio_semanal$Analista), 
+              caption = "Total de notas durante la semana divididas por noticiero")
+kable_styling(total_noticiero, font_size = 10)
+
+total_notas_noticiero <- audio_semanal %>%
+  group_by(Noticiero, Fecha) %>%
+  summarise(n = n()) %>%
+  ggplot(aes(Fecha, reorder(Noticiero, n), fill = n))+
+  geom_tile(aes(group = Noticiero), size = 0.2)+
+  #facet_grid(~Fecha) + 
+  scale_fill_gradient(low = "white", high = "steelblue")+
+  geom_text(aes(label = n))+
+  labs(title = "Distribución de noticias por noticiero",
+       subtitle = paste0(nrow(audio_semanal)," notas totales"),
+       x = "Fecha",
+       y = "Total de notas",
+       caption = "\n@Data recolectada a través del formulario de captura de Punto Preciso")+
+  theme_classic()+
+  theme(axis.text.x=element_text(angle=90, hjust=1))
+total_notas_noticiero
+
+```
+
+- 4 ¿Cuántas noticias le dedican los noticieros cada nivel de gobierno?
+```{r}
+
+audio_semanal %>% 
+  select(c(Noticiero, Nivel_gobierno)) %>%
+  group_by(Nivel_gobierno) %>% 
+  count(sort = TRUE) %>% 
+  ungroup() %>% 
+  kable() %>% 
+  kable_styling(bootstrap_options = "responsive", font_size = 9)
+
+por_nivel_gobierno <- audio_semanal %>%
+  group_by(Nivel_gobierno, Noticiero) %>%
+  summarise(n = n()) %>%
+  chordDiagram()
+
+
+```
+
+
+
+
+
+
+
+

@@ -1,0 +1,154 @@
+---
+title: "**Estadísticas de turismo**"
+subtitle: "Noticias publicadas en los medios de comunicación de radio y televisión más destacados del estado de Guanajuato"
+author: "**Punto Preciso**"
+date: '`r format(Sys.Date(), "%d de %B de %Y")`'
+output:
+  html_document: 
+    theme: cosmo
+  word_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,
+                      message = FALSE,
+                      warning = FALSE)
+```
+
+```{r Objetivos, eval=FALSE, include=FALSE}
+
+# Análisis de notas audiovisuales sobre turismo ---------------------------
+
+
+# # Objetivos -------------------------------------------------------------
+
+# Conocer la cantidad total de notas de turismo durante el día
+# Conocer el tiempo estimado que se dedica a turismo
+# Conocer la cantidad de notas por horario
+# Conocer la cantidad de notas por medio de comunicación
+
+```
+
+```{r Librerías, include=FALSE}
+
+library(tidyverse) # Para todo!
+library(tidytext) # Para el análisis del texto
+library(kableExtra) # Para tablas bonitas
+library(gt) # Probamos tablas bonitas con esta otra librería
+library(gtExtras) # Complemento de librería gt
+library(ggthemes) # Para gráficas bonitas
+library(gganimate) # Para gráficos animados
+library(treemap) # Para el gráfico de cuadritos
+library(DT)
+
+```
+
+```{r Constantes, include=FALSE}
+#para filtrar los datos de acuerdo al periodo de tiempo que quiero analizar
+fecha <- Sys.Date() + -1
+
+```
+
+```{r Carga de los datos, include=FALSE}
+
+library(readr)
+audiovisuales <- 
+  read_csv("https://docs.google.com/spreadsheets/d/e/2PACX-1vTjyGBaMjcbumwObs8PqncIQdHYIQ4EBuBcxqo1MtNDv9Yz62j-nt1Mwz14WAxwrezfiK1IxbVLkVXy/pub?output=csv", 
+           col_types = cols(
+             `Marca temporal` = col_datetime(format = "%d/%m/%Y %H:%M:%S"), 
+             Fecha = col_date(format = "%d/%m/%Y"), 
+             Horario = col_factor(levels = c("Matutino", "Vespertino", "Nocturno")), 
+             Duración = col_time(format = "%H:%M:%S"),  
+             Analista = col_factor(levels = c("Alejandro", "Elisa", "Gael",
+                                              "Luisa", "Monserrat", "Braulio",
+                                              "Azucena", "Cynthia")), 
+             Tipo_noticiero = col_character(), 
+             Nivel_gobierno = col_character()))
+View(audiovisuales)
+
+```
+
+```{r Procesamiento de la data, include=FALSE}
+# dependiendo de las fechas que quiera analizar, se hace el filtro correspondiente
+audio_ayer <- audiovisuales %>% 
+  filter(Fecha == fecha)
+
+#separo la info que se captura en una sola columna
+audio_ayer <- audio_ayer %>% 
+  mutate(id = `Marca temporal`) %>% 
+  unnest_tokens(Nivel_gobierno, Nivel_gobierno, 
+                token = "regex", pattern = ",") %>% 
+  unnest_tokens(Organización, Organización, token = "regex", pattern = ",") %>% 
+  unnest_tokens(Tendencia, Tendencia, token = "regex", pattern = ",")
+
+# La limpieza en esta caso la voy a limitar a remover acentos y pasar a
+# minúsculas todas las letras 
+limpiar_texto <- function(texto){
+  # El orden de la limpieza no es arbitrario
+  # Se convierte todo el texto a minúsculas
+  nuevo_texto <- str_to_lower(texto)
+  # Eliminación de signos de puntuación
+  #nuevo_texto <- str_replace_all(nuevo_texto,"[[:punct:]]", " ")
+  # Eliminación de acentos
+  nuevo_texto <- chartr("áéíóú", "aeiou", nuevo_texto)
+  #nuevo_texto <- str_replace_all(nuevo_texto,"[áéíóú]", "[aeiou]")
+  # Eliminación de espacios en blanco múltiples
+  nuevo_texto <- str_replace_all(nuevo_texto,"[\\s]+", " ")
+  return(nuevo_texto)
+}
+
+audio_ayer<- audio_ayer %>% 
+  mutate(Nivel_gobierno, Nivel_gobierno = limpiar_texto(texto = Nivel_gobierno),
+         Organización, Organización = limpiar_texto(texto = Organización),
+         Tendencia, Tendencia = limpiar_texto(texto = Tendencia))
+
+# definimos el conjunto de palabras que se detectarán - en este caso de turismo
+sectur <- c("SECTUR", "sectur", "Sectur", "Turismo", "turismo",
+            "secretaría de turismo", "Secretaría de turismo")
+# junta las variaciones de la organización en un nuevo data set 
+# separados por una  barra vertical
+coincidencia_sectur <- str_c(sectur, collapse = "|")
+coincidencia_sectur
+
+# Filtramos las frases  que tengan una determinada variación de la organización
+audio_ayer_sectur <- audio_ayer %>% 
+  filter(Organización == "sectur")
+
+```
+
+```{r Totales}
+
+
+
+```
+
+## Resumen
+
+Durante el día de **ayer** se encontró que en los distintos medios de comunicación monitoreados por Punto Preciso **se publicaron un total de `r nrow(audio_ayer)` noticias** de las cuales **`r nrow(audio_ayer_sectur)` tuvieron relación con el tema de turismo**. A continuación el desglose.
+
+### 1. Noticias totales con relación al turismo en el estado.
+
+```{r total turismo, echo=FALSE}
+
+# tablas con kable extra --------------------------------------------------
+# Hago una tabla bonita con kablextra
+audio_ayer_sectur %>% 
+  select(c(Fecha, Titular, Enlace, Horario, Duración, Tipo_noticiero,
+           Noticiero)) %>%
+  arrange(desc(Duración)) %>% 
+  kable(caption = "Información publicada en radio y tv sobre turismo") %>%
+  kable_styling(bootstrap_options = c("responsive", "striped", "hover", 
+                                      "condensed"),
+                fixed_thead = T, latex_options = "scale_down") %>%
+  column_spec(2, background = "#80AAEC", color = "white") %>% 
+  column_spec(3, width = "1cm") %>% 
+  column_spec(5, color = "white",
+              background = spec_color(as.numeric(audio_ayer_sectur$Duración[1:3]), 
+                                      end = 0.3, option = "A")) %>% 
+  footnote(general = "**Datos** obtenidos mediante el **monitoreo** de radio y tv hecho **por Punto Preciso**")
+
+
+
+
+```

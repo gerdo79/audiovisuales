@@ -1,0 +1,202 @@
+---
+title: "Estadísticas de noticias monitoreadas por analistas"
+author: "Gerardo Diosdado"
+date: '`r format(Sys.Date(), "%d de %B de %Y")`'
+output:
+  html_document: 
+    theme: journal
+  word_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,
+                      message = FALSE,
+                      warning = FALSE)
+```
+
+```{r Objetivos, eval=FALSE, include=FALSE}
+
+# Intento de análisis de notas audiovisuales ------------------------------
+
+
+# # Objetivos -------------------------------------------------------------
+
+# Conocer la cantidad de noticieros que se monitorean
+# Conocer la cantidad total de notas
+# COnocer la cantidad de notas por horario
+# Conocer la cantidad de notas por medio de comunicación
+# Conocer la cantidad de notas por temática
+# Conocer el tiempo que se dedica a cada temática
+# Conocer la cantidad de notas por tendencia
+# Conocer el tiempo que se dedica a cada tendencia
+# Conocer la cantidad de notas electorales
+# Conocer el tiempo que se dedica a las notas electorales
+
+```
+
+```{r Librerías, include=FALSE}
+
+library(tidyverse) # Para todo!
+library(tidytext) # Para el análisis del texto
+library(kableExtra) # Para tablas bonitas
+library(DT) # para tablas mas bonitas
+library(ggthemes) # Para gráficas bonitas
+library(gganimate) # Para gráficos animados
+
+```
+
+```{r Carga de los datos, include=FALSE}
+
+library(readr)
+audiovisuales <- 
+  read_csv("https://docs.google.com/spreadsheets/d/e/2PACX-1vTjyGBaMjcbumwObs8PqncIQdHYIQ4EBuBcxqo1MtNDv9Yz62j-nt1Mwz14WAxwrezfiK1IxbVLkVXy/pub?output=csv", 
+           col_types = cols(
+             `Marca temporal` = col_datetime(format = "%d/%m/%Y %H:%M:%S"), 
+             Fecha = col_date(format = "%d/%m/%Y"), 
+             Horario = col_factor(levels = c("Matutino", "Vespertino", "Nocturno")), 
+             Duración = col_time(format = "%H:%M:%S"),  
+             Analista = col_factor(levels = c("Alejandro", "Elisa", "Gael",
+                                              "Luisa", "Monserrat", 
+                                              "Braulio", "Cynthia", "Azucena")), 
+             Tipo_noticiero = col_factor(levels = c("Internet", "Radio", 
+                                                    "Televisión")), 
+             Nivel_gobierno = col_character()))
+View(audiovisuales)
+
+```
+
+```{r Procesamiento de la data, include=FALSE}
+
+#Filtramos la fecha de las notas que quiero mostrar
+audio_semanal <- audiovisuales %>% 
+  filter(Fecha >= "2022-05-30" & Fecha <= "2022-06-04")
+
+```
+
+## Objetivos
+
+Revisar la productividad que tuvieron durante la semana pasada los analistas de Punto Preciso que laboran haciendo el monitoreo de medios de comunicación audiovisuales. Las estadísticas en las que se basa la revisión se toman de la información captura por los mismos analistas a través del formulario de captura diseñado para este fin. La información recopilada se puede consultar [aquí](https://docs.google.com/spreadsheets/d/e/2PACX-1vTjyGBaMjcbumwObs8PqncIQdHYIQ4EBuBcxqo1MtNDv9Yz62j-nt1Mwz14WAxwrezfiK1IxbVLkVXy/pub?output=csv%22)
+
+### 1. Noticias totales revisadas por cada analista durante la semana.
+
+```{r total por analista, echo=FALSE}
+
+total_notas <-
+  kable(table(audio_semanal$Analista), 
+        caption = paste0(nrow(audio_semanal), " noticias totales durante la semana"))
+kable_styling(total_notas, font_size = 12)
+
+total_notas_grafico <- audio_semanal %>% 
+  group_by(Analista) %>% 
+  count(sort = TRUE) %>%
+  ungroup() %>% 
+  ggplot(aes(n, reorder(Analista, n), fill = Analista))+
+  geom_col()+
+  geom_label(aes(label = n))+
+  labs(title = "Total de notas por cada analista durante la semana",
+       subtitle = paste0(nrow(audio_semanal)," notas totales divididas por analista"),
+       x = "Analista",
+       y = "Total de notas",
+       caption = "\n@Data recolectada a través del formulario de captura de Punto Preciso")+
+  theme_hc()+
+  theme(legend.position = "none")+
+  transition_states(n, transition_length = 2, state_length = 1) +
+  enter_grow()+
+  enter_appear()+
+  shadow_mark(past = TRUE)
+animate(total_notas_grafico, fps = 12, end_pause = 7)
+
+```
+
+### 2. Del total de noticias revisadas, ¿cuántas revisó cada analista durante el día?
+
+```{r total por analista por dia}
+
+total_fecha <-
+  kable(table(audio_semanal$Analista, audio_semanal$Fecha), 
+        caption = paste0(nrow(audio_semanal), " total de notas durante la semana"))
+kable_styling(total_fecha, font_size = 12)
+
+total_notas_fecha <- audio_semanal %>%
+  group_by(Analista, Fecha) %>%
+  summarise(n = n()) %>%
+  ggplot(aes(Fecha, n, color = Analista))+
+  geom_line(aes(group = Analista))+
+  geom_point()+
+  ggrepel::geom_label_repel(aes(label = n))+
+  labs(title = "Total de notas diaria por analista",
+       subtitle = paste0(nrow(audio_semanal)," notas totales"),
+       x = "Fecha",
+       y = "Total de notas",
+       caption = "\n@Data recolectada a través del formulario de captura de Punto Preciso")+
+  theme_hc()+
+  transition_manual(Fecha, cumulative = TRUE) +
+  shadow_mark(past = TRUE)
+animate(total_notas_fecha, fps = 12, end_pause = 7)
+
+```
+
+### 3. ¿Cuáles son los horarios del día en los que los analistas revisan más información?
+
+```{r Notas por horario, echo=FALSE}
+
+total_horario <-
+  kable(table(audio_semanal$Analista, audio_semanal$Horario), 
+        caption = paste0(nrow(audio_semanal), " total de notas durante la semana"))
+kable_styling(total_horario, font_size = 12)
+
+total_notas_horario <- audio_semanal %>%
+  group_by(Analista, Fecha, Horario) %>%
+  summarise(n = n()) %>%
+  ggplot(aes(Horario, reorder(Analista, n), fill = n))+
+  geom_tile(aes(group = Horario))+
+  facet_grid(~Fecha) + 
+  scale_fill_gradient(low = "white", high = "steelblue")+
+  geom_text(aes(label = n))+
+  labs(title = "Total de notas revisadas por los analistas divididas por horario",
+       subtitle = paste0(nrow(audio_semanal)," notas totales"),
+       x = "Fecha",
+       y = "Total de notas",
+       caption = "\n@Data recolectada a través del formulario de captura de Punto Preciso")+
+  theme_hc()+
+  theme(axis.text.x=element_text(angle=90, hjust=1))
+total_notas_horario
+
+```
+
+### 5. ¿Cómo se distribuye la información por cada medio de comunicación a lo largo de la semana?
+
+```{r Notas por noticiero}
+
+total_noticiero <-
+  kable(table(audio_semanal$Noticiero, audio_semanal$Fecha), 
+        caption = paste0(nrow(audio_semanal), " total de notas durante la semana"))
+kable_styling(total_noticiero, font_size = 12)
+
+total_notas_noticiero <- audio_semanal %>%
+  group_by(Noticiero, Fecha) %>%
+  summarise(n = n()) %>%
+  ggplot(aes(Fecha, Noticiero, fill = n))+
+  geom_tile(aes(group = Noticiero))+
+  #facet_grid(~Fecha) + 
+  scale_fill_gradient(low = "white", high = "steelblue")+
+  geom_text(aes(label = n))+
+  labs(title = "Distribución de noticias por noticiero",
+       subtitle = paste0(nrow(audio_semanal)," notas totales"),
+       x = "Fecha",
+       y = "Total de notas",
+       caption = "\n@Data recolectada a través del formulario de captura de Punto Preciso")+
+  theme_classic()+
+  theme(axis.text.x=element_text(angle=90, hjust=1))
+total_notas_noticiero
+
+```
+
+### Información total durante la semana
+
+```{r Total de notas de la semana}
+audio_semanal %>% 
+  datatable()
+
+```

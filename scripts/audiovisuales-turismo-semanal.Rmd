@@ -1,0 +1,195 @@
+---
+title: "Estadísticas de noticias de radio y televisión sobre turismo"
+author: "Punto Preciso"
+date: "Martes, 05 de octubre de 2021"
+output:
+  html_document: 
+    theme: cosmo
+    toc: yes
+  word_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,
+                      message = FALSE,
+                      warning = FALSE)
+```
+
+```{r Objetivos, eval=FALSE, include=FALSE}
+
+# Análisis de notas audiovisuales sobre turismo ---------------------------
+
+
+# # Objetivos -------------------------------------------------------------
+
+# Conocer la cantidad total de notas de turismo durante el día
+# Conocer el tiempo estimado que se dedica a turismo
+# Conocer la cantidad de notas por horario
+# Conocer la cantidad de notas por medio de comunicación
+
+```
+
+```{r Librerías, include=FALSE}
+
+library(tidyverse) # Para todo!
+library(stringr) # Transformación y manejo de texto
+library(tidytext) # Para el análisis del texto
+library(kableExtra) # Para tablas bonitas
+library(ggthemes) # Para gráficas bonitas
+library(gganimate) # Para gráficos animados
+library(treemap) # Para el gráfico de cuadritos
+
+```
+
+```{r Carga de los datos, include=FALSE}
+
+library(readr)
+audiovisuales <- 
+  read_csv("https://docs.google.com/spreadsheets/d/e/2PACX-1vTjyGBaMjcbumwObs8PqncIQdHYIQ4EBuBcxqo1MtNDv9Yz62j-nt1Mwz14WAxwrezfiK1IxbVLkVXy/pub?output=csv", 
+           col_types = cols(
+             `Marca temporal` = col_datetime(format = "%d/%m/%Y %H:%M:%S"), 
+             Fecha = col_date(format = "%d/%m/%Y"), 
+             Horario = col_factor(levels = c("Matutino", "Vespertino", "Nocturno")), 
+             Duración = col_time(format = "%H:%M:%S"),  
+             Analista = col_factor(levels = c("Alejandro", "Elisa", "Gael",
+                                              "Luisa", "Monserrat", "Braulio")), 
+             Tipo_noticiero = col_factor(levels = c("Internet", "Radio", 
+                                                    "Televisión")), 
+             Nivel_gobierno = col_character()))
+View(audiovisuales)
+
+```
+
+```{r Procesamiento de la data, include=FALSE}
+
+#separo la info que se captura en una sola columna
+audiovisuales <- audiovisuales %>% 
+  unnest_tokens(Nivel_gobierno, Nivel_gobierno, 
+                token = "regex", pattern = ",") %>% 
+  unnest_tokens(Organización, Organización, token = "regex", pattern = ",") %>% 
+  unnest_tokens(Tendencia, Tendencia, token = "regex", pattern = ",")
+
+# dependiendo de las fechas que quiera analizar, se hace el filtro correspondiente
+
+audio_ayer <- audiovisuales %>% 
+  filter(Fecha >= "2021-10-04" & Fecha <= "2021-10-09")
+
+# La limpieza en esta caso la voy a limitar a remover acentos y pasar a
+# minúsculas todas las letras 
+
+limpiar_texto <- function(texto){
+  # El orden de la limpieza no es arbitrario
+  # Se convierte todo el texto a minúsculas
+  nuevo_texto <- str_to_lower(texto)
+  # Eliminación de signos de puntuación
+  #nuevo_texto <- str_replace_all(nuevo_texto,"[[:punct:]]", " ")
+  # Eliminación de acentos
+  nuevo_texto <- chartr("áéíóú", "aeiou", nuevo_texto)
+  #nuevo_texto <- str_replace_all(nuevo_texto,"[áéíóú]", "[aeiou]")
+  # Eliminación de espacios en blanco múltiples
+  nuevo_texto <- str_replace_all(nuevo_texto,"[\\s]+", " ")
+  return(nuevo_texto)
+}
+
+audio_ayer<- audio_ayer %>% 
+  mutate(Nivel_gobierno, Nivel_gobierno = limpiar_texto(texto = Nivel_gobierno),
+         Organización, Organización = limpiar_texto(texto = Organización),
+         Tendencia, Tendencia = limpiar_texto(texto = Tendencia))
+
+# definimos el conjunto de palabras que se detectarán - en este caso de turismo
+sectur <- c("SECTUR", "sectur", "Sectur", "Turismo", "turismo",
+            "secretaría de turismo", "Secretaría de turismo")
+# junta las variaciones de la organización en un nuevo data set 
+# separados por una  barra vertical
+coincidencia_sectur <- str_c(sectur, collapse = "|")
+coincidencia_sectur
+
+# Filtramos las frases  que tengan una determinada variación de la organización
+tiene_sectur <- str_subset(audio_ayer$Organización, coincidencia_sectur)
+tiene_sectur <- as_tibble(tiene_sectur)
+
+# Extraemos las frases  que tengan una determinada variación de la organización
+tiene_sectur <- str_extract(audio_ayer$Organización, coincidencia_sectur)
+tiene_sectur <- as.character(tiene_sectur)
+tiene_sectur <- as_tibble(tiene_sectur)
+head(tiene_sectur)
+
+# Unimos los data frames en uno
+audio_ayer_sectur <- merge(audio_ayer, tiene_sectur,
+                        by = 0, all = TRUE)
+
+# renombramos la columna 
+audio_ayer_sectur <- rename(audio_ayer_sectur, sectur = value)
+
+```
+
+```{r Totales}
+
+
+
+```
+
+
+## Resumen 
+
+Durante el día de ayer se revisaron un total de 200 noticias en los distintos medios de comunicación que revisamos. De ese total,  **19 noticias tuvieron relación con el tema de turismo**. A continuación el desglose.
+
+
+### 1. Noticias totales con relación al turismo en el estado.
+```{r total turismo, echo=FALSE}
+
+# Me quedo solo con los registros que son de sectur
+audio_ayer_sectur <- audio_ayer_sectur %>% 
+  filter(sectur == "sectur")
+
+
+
+#ahora hago una bonita gráfica
+total_turismo_noticiero <- audio_ayer_sectur %>%
+  group_by(Noticiero, Fecha, Horario) %>%
+  summarise(n = n()) %>%
+  ggplot(aes(Horario, reorder(Noticiero, n), fill = n))+
+  geom_tile(aes(group = Noticiero))+
+  facet_grid(~Fecha) + 
+  scale_fill_gradient(low = "white", high = "steelblue")+
+  geom_text(aes(label = n))+
+  labs(title = "Total de notas revisadas en noticiero",
+       subtitle = paste0(nrow(audio_ayer_sectur)," notas totales"),
+       x = "Fecha",
+       y = "Total de notas",
+       caption = "\n@Data recolectada a través del formulario de captura de Punto Preciso")+
+  theme_hc()+
+  theme(axis.text.x=element_text(angle=90, hjust=1))
+total_turismo_noticiero
+
+
+# Hago una tabla bonita
+audio_ayer_sectur %>% 
+  select(c(Fecha, Titular, Enlace, Horario, Duración, Tipo_noticiero,
+           Noticiero)) %>% 
+  kable() %>% 
+  kable_styling(bootstrap_options = "responsive", font_size = 9)
+
+# hago otra bonita tabla, esta vez con reactable
+audio_ayer_sectur %>% 
+  select(c(Fecha, Titular, Enlace, Horario, Duración, Tipo_noticiero,
+           Noticiero)) %>% 
+  reactable(filterable = TRUE, searchable = TRUE, defaultPageSize = 5, 
+            groupBy = "Noticiero", paginateSubRows = TRUE)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,134 @@
+{
+ "name": "PuntoPrecisoAudiovisuales",
+ "type": "private_supergroup",
+ "id": 1453638534,
+ "messages": [
+  {
+   "id": 39,
+   "type": "message",
+   "date": "2021-06-08T19:58:16",
+   "from": "Gerardo Diosdado",
+   "from_id": "user1533307334",
+   "text": [
+    {
+     "type": "bold",
+     "text": "Titular\n"
+    },
+    "AMLO vive otra realidad, violencia e inseguridad no han bajado; COPARMEX. \n",
+    {
+     "type": "bold",
+     "text": "Vinculo\n"
+    },
+    {
+     "type": "link",
+     "text": "https://drive.google.com/file/d/1xtnvun_vcpMwYOalYyGMIMzbe-ucsOC-/view?usp=sharing"
+    },
+    "\n",
+    {
+     "type": "bold",
+     "text": "Horario"
+    },
+    " \nAM \n",
+    {
+     "type": "bold",
+     "text": "Tiempo de duración\n"
+    },
+    "17:45\n",
+    {
+     "type": "bold",
+     "text": "Analista\n"
+    },
+    "LUISA\n",
+    {
+     "type": "bold",
+     "text": "Tipo de noticiero\n"
+    },
+    "Radio \n",
+    {
+     "type": "bold",
+     "text": "Nombre del noticiero\n"
+    },
+    "Mvs noticias\n",
+    {
+     "type": "bold",
+     "text": "Tendencia\n"
+    },
+    "Elecciones 2021\n",
+    {
+     "type": "bold",
+     "text": "Nivel de gobierno\n"
+    },
+    "Gobierno federal / industria privada\n",
+    {
+     "type": "bold",
+     "text": "Organización"
+    },
+    " \nAmlo / coparmex"
+   ]
+  },
+  {
+   "id": 40,
+   "type": "message",
+   "date": "2021-06-08T20:10:41",
+   "from": "Gerardo Diosdado",
+   "from_id": "user1533307334",
+   "text": [
+    {
+     "type": "bold",
+     "text": "Titular"
+    },
+    "|\nAMLO vive otra realidad, violencia e inseguridad no han bajado en el país; COPARMEX. |\n",
+    {
+     "type": "bold",
+     "text": "Vinculo"
+    },
+    " |\n",
+    {
+     "type": "link",
+     "text": "https://drive.google.com/file/d/1xtnvun_vcpMwYOalYyGMIMzbe-ucsOC-/view?usp=sharing|"
+    },
+    "\n",
+    {
+     "type": "bold",
+     "text": "Horario"
+    },
+    " |\nAM |\n",
+    {
+     "type": "bold",
+     "text": "Tiempo de duración"
+    },
+    "|\n17:45|\n",
+    {
+     "type": "bold",
+     "text": "Analista"
+    },
+    " |\nLuisa|\n",
+    {
+     "type": "bold",
+     "text": "Tipo de noticiero"
+    },
+    "|\nRadio |\n",
+    {
+     "type": "bold",
+     "text": "Nombre del noticiero"
+    },
+    "|\nMvs noticias|\n",
+    {
+     "type": "bold",
+     "text": "Tendencia"
+    },
+    "|\nElecciones 2021|\n",
+    {
+     "type": "bold",
+     "text": "Nivel de gobierno"
+    },
+    "|\nGobierno federal / industria privada|\n",
+    {
+     "type": "bold",
+     "text": "Organización"
+    },
+    " |\nAmlo / coparmex|"
+   ]
+  }
+ ]
+}
